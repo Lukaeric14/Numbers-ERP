@@ -16,6 +16,7 @@ export function LoginForm({
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [fullName, setFullName] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
@@ -35,7 +36,7 @@ export function LoginForm({
           router.push('/')
         }
       } else {
-        const { error: signUpError } = await signUp(email, password)
+        const { error: signUpError } = await signUp(email, password, fullName)
         if (signUpError) {
           setError(signUpError.message)
         } else {
@@ -64,6 +65,19 @@ export function LoginForm({
               {error && (
                 <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
                   {error}
+                </div>
+              )}
+              {!isLogin && (
+                <div className="grid gap-3">
+                  <Label htmlFor="fullName">Full Name</Label>
+                  <Input
+                    id="fullName"
+                    type="text"
+                    placeholder="John Doe"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                  />
                 </div>
               )}
               <div className="grid gap-3">

@@ -8,7 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   user: User | null
   userRole: string | null
-  signUp: (email: string, password: string) => Promise<{ error: any }>
+  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signOut: () => Promise<void>
   loading: boolean
@@ -83,10 +83,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, fullName?: string) => {
+    // Split full name into first and last name if provided
+    let firstName = ''
+    let lastName = ''
+    
+    if (fullName) {
+      const nameParts = fullName.trim().split(' ')
+      firstName = nameParts[0] || ''
+      lastName = nameParts.slice(1).join(' ') || ''
+    }
+    
     const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          full_name: fullName || '',
+          first_name: firstName,
+          last_name: lastName
+        }
+      }
     })
     return { error }
   }

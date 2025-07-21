@@ -23,7 +23,7 @@ function DashboardHeader() {
   const { breadcrumb } = useContent()
   
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2">
+    <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background">
       <div className="flex items-center gap-2 px-4">
         <SidebarTrigger className="-ml-1" />
         <Separator
@@ -57,10 +57,12 @@ export default function Dashboard() {
       <ContentProvider>
         <SidebarProvider>
           <AppSidebar />
-          <SidebarInset>
+          <SidebarInset className="flex flex-col h-screen rounded-xl bg-background border m-2 overflow-hidden">
             <DashboardHeader />
-            <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-              <ContentRenderer />
+            <div className="flex-1 overflow-y-auto">
+              <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+                <ContentRenderer />
+              </div>
             </div>
           </SidebarInset>
         </SidebarProvider>
