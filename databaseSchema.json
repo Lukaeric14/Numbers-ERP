@@ -1,0 +1,147 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.app_users (
+  id uuid NOT NULL,
+  role text NOT NULL CHECK (role = ANY (ARRAY['admin'::text, 'tutor'::text, 'parent'::text, 'student'::text])),
+  employee_id uuid,
+  parent_id uuid,
+  workspace_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  student_id uuid,
+  CONSTRAINT app_users_pkey PRIMARY KEY (id),
+  CONSTRAINT app_users_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
+  CONSTRAINT app_users_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id),
+  CONSTRAINT app_users_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id),
+  CONSTRAINT app_users_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.parents(id),
+  CONSTRAINT app_users_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id)
+);
+CREATE TABLE public.employees (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  workspace_id uuid,
+  status text DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'inactive'::text])),
+  type text DEFAULT 'tutor'::text CHECK (type = ANY (ARRAY['admin'::text, 'tutor'::text])),
+  first_name text NOT NULL,
+  last_name text NOT NULL,
+  email text NOT NULL,
+  phone text,
+  profile_image_url text,
+  bio text,
+  availability jsonb,
+  position_title text,
+  lesson_wage_type text CHECK (lesson_wage_type = ANY (ARRAY['custom'::text, 'service-based'::text])),
+  custom_wage numeric,
+  subjects ARRAY,
+  hire_date date,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT employees_pkey PRIMARY KEY (id),
+  CONSTRAINT employees_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id)
+);
+CREATE TABLE public.invoice_line_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  invoice_id uuid,
+  lesson_id uuid,
+  service_id uuid,
+  description text,
+  rate numeric,
+  duration_minutes integer,
+  subtotal numeric,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT invoice_line_items_pkey PRIMARY KEY (id),
+  CONSTRAINT invoice_line_items_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(id),
+  CONSTRAINT invoice_line_items_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id),
+  CONSTRAINT invoice_line_items_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES public.lessons(id)
+);
+CREATE TABLE public.invoices (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  workspace_id uuid,
+  student_id uuid,
+  parent_id uuid,
+  status text DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'sent'::text, 'paid'::text])),
+  amount_due numeric NOT NULL DEFAULT 0,
+  amount_paid numeric NOT NULL DEFAULT 0,
+  due_date date,
+  sent_at timestamp with time zone,
+  paid_at timestamp with time zone,
+  quickbooks_invoice_id text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT invoices_pkey PRIMARY KEY (id),
+  CONSTRAINT invoices_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id),
+  CONSTRAINT invoices_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.parents(id),
+  CONSTRAINT invoices_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id)
+);
+CREATE TABLE public.lessons (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  workspace_id uuid,
+  tutor_id uuid,
+  student_id uuid,
+  service_id uuid,
+  location_id uuid,
+  title text,
+  description text,
+  start_time timestamp with time zone NOT NULL,
+  end_time timestamp with time zone NOT NULL,
+  status text DEFAULT 'scheduled'::text CHECK (status = ANY (ARRAY['scheduled'::text, 'completed'::text, 'canceled'::text])),
+  invoice_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT lessons_pkey PRIMARY KEY (id),
+  CONSTRAINT lessons_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id),
+  CONSTRAINT lessons_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.locations(id),
+  CONSTRAINT lessons_tutor_id_fkey FOREIGN KEY (tutor_id) REFERENCES public.employees(id),
+  CONSTRAINT lessons_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id),
+  CONSTRAINT lessons_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(id),
+  CONSTRAINT lessons_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id)
+);
+CREATE TABLE public.locations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  workspace_id uuid,
+  name text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT locations_pkey PRIMARY KEY (id),
+  CONSTRAINT locations_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id)
+);
+CREATE TABLE public.parents (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  workspace_id uuid,
+  first_name text NOT NULL,
+  last_name text NOT NULL,
+  email text NOT NULL,
+  phone text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT parents_pkey PRIMARY KEY (id),
+  CONSTRAINT parents_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id)
+);
+CREATE TABLE public.services (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  workspace_id uuid,
+  name text NOT NULL,
+  description text,
+  price_per_hour numeric,
+  cost_per_hour numeric,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT services_pkey PRIMARY KEY (id),
+  CONSTRAINT services_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id)
+);
+CREATE TABLE public.students (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  workspace_id uuid,
+  parent_id uuid,
+  first_name text NOT NULL,
+  last_name text NOT NULL,
+  email text,
+  phone text,
+  school text,
+  subjects ARRAY,
+  grade_year text,
+  start_date date,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT students_pkey PRIMARY KEY (id),
+  CONSTRAINT students_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.parents(id),
+  CONSTRAINT students_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id)
+);
+CREATE TABLE public.workspaces (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT workspaces_pkey PRIMARY KEY (id)
+);

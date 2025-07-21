@@ -14,6 +14,7 @@ import {
   Users,
   DollarSign,
   Calendar,
+  type LucideIcon,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
@@ -31,125 +32,145 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-const navData = {
-  navMain: [
+type NavChild = {
+  label: string;
+  path: string;
+};
+
+type NavItem = {
+  label: string;
+  path?: string;
+  icon: LucideIcon;
+  children?: NavChild[];
+};
+
+type NavItems = {
+  admin: NavItem[];
+  tutor: NavItem[];
+  parent: NavItem[];
+  student: NavItem[];
+};
+
+const navItems: NavItems = {
+  admin: [
+    { label: "Dashboard", path: "/dashboard", icon: PieChart },
+    { label: "Calendar", path: "/calendar", icon: Calendar },
     {
-      title: "Students",
-      url: "#",
+      label: "Students",
       icon: Users,
-      isActive: true,
-      items: [
-        {
-          title: "All Students",
-          url: "#",
-        },
-        {
-          title: "Add Student",
-          url: "#",
-        },
-        {
-          title: "Student Groups",
-          url: "#",
-        },
-      ],
+      children: [
+        { label: "All Students", path: "/students" },
+        { label: "Add Student", path: "/students/new" }
+      ]
     },
     {
-      title: "Tutoring",
-      url: "#",
+      label: "Tutoring",
       icon: BookOpen,
-      items: [
-        {
-          title: "Sessions",
-          url: "#",
-        },
-        {
-          title: "Schedule",
-          url: "#",
-        },
-        {
-          title: "Tutors",
-          url: "#",
-        },
-      ],
+      children: [
+        { label: "Services", path: "/services" },
+        { label: "Tutors", path: "/tutors" },
+        { label: "Lessons", path: "/lessons" }
+      ]
     },
     {
-      title: "Billing",
-      url: "#",
+      label: "Billing",
       icon: DollarSign,
-      items: [
-        {
-          title: "Invoices",
-          url: "#",
-        },
-        {
-          title: "Payments",
-          url: "#",
-        },
-        {
-          title: "Reports",
-          url: "#",
-        },
-      ],
+      children: [
+        { label: "Invoices", path: "/invoices" },
+        { label: "Reports", path: "/reports" }
+      ]
     },
     {
-      title: "Settings",
-      url: "#",
+      label: "Settings",
       icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Users",
-          url: "#",
-        },
-        {
-          title: "Preferences",
-          url: "#",
-        },
-      ],
-    },
+      children: [
+        { label: "General", path: "/settings/general" },
+        { label: "Users", path: "/settings/users" },
+        { label: "Preferences", path: "/settings/preferences" }
+      ]
+    }
   ],
-  navSecondary: [
-    {
-      title: "Support",
-      url: "#",
-      icon: LifeBuoy,
-    },
-    {
-      title: "Feedback",
-      url: "#",
-      icon: Send,
-    },
+
+  tutor: [
+    { label: "Calendar", path: "/calendar", icon: Calendar },
+    { label: "My Lessons", path: "/lessons", icon: BookOpen },
+    { label: "Students", path: "/students", icon: Users },
+    { label: "Profile", path: "/profile", icon: Settings2 }
   ],
-  projects: [
-    {
-      name: "Math Tutoring",
-      url: "#",
-      icon: Calculator,
-    },
-    {
-      name: "Science Tutoring",
-      url: "#",
-      icon: Bot,
-    },
-    {
-      name: "Language Arts",
-      url: "#",
-      icon: BookOpen,
-    },
+
+  parent: [
+    { label: "Calendar", path: "/calendar", icon: Calendar },
+    { label: "My Students", path: "/students", icon: Users },
+    { label: "Invoices", path: "/invoices", icon: DollarSign },
+    { label: "Account", path: "/profile", icon: Settings2 }
   ],
-}
+
+  student: [
+    { label: "Calendar", path: "/calendar", icon: Calendar },
+    { label: "My Lessons", path: "/lessons", icon: BookOpen },
+    { label: "Profile", path: "/profile", icon: Settings2 }
+  ]
+};
+
+const navSecondary = [
+  {
+    title: "Support",
+    url: "#",
+    icon: LifeBuoy,
+  },
+  {
+    title: "Feedback",
+    url: "#",
+    icon: Send,
+  },
+];
+
+const projects = [
+  {
+    name: "Math Tutoring",
+    url: "#",
+    icon: Calculator,
+  },
+  {
+    name: "Science Tutoring",
+    url: "#",
+    icon: Bot,
+  },
+  {
+    name: "Language Arts",
+    url: "#",
+    icon: BookOpen,
+  },
+];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user } = useAuth()
+  const { user, userRole } = useAuth()
 
   const userData = {
     name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User',
     email: user?.email || 'user@example.com',
     avatar: user?.user_metadata?.avatar_url || '/avatars/user.jpg',
   }
+
+  // Debug: Log user role from context
+  console.log('User role from context:', userRole)
+  
+  // Use role from auth context, default to 'student' if not set
+  const currentUserRole = userRole || 'student'
+  
+  // Get navigation items based on user role
+  const currentNavItems = navItems[currentUserRole as keyof typeof navItems] || navItems.student
+  
+  // Transform navigation items to match NavMain expected format
+  const transformedNavItems = currentNavItems.map(item => ({
+    title: item.label,
+    url: item.path || "#",
+    icon: item.icon,
+    items: item.children?.map((child: NavChild) => ({
+      title: child.label,
+      url: child.path,
+    }))
+  }))
 
   return (
     <Sidebar variant="inset" {...props}>
@@ -171,9 +192,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navData.navMain} />
-        <NavProjects projects={navData.projects} />
-        <NavSecondary items={navData.navSecondary} className="mt-auto" />
+        <NavMain items={transformedNavItems} />
+        {currentUserRole === 'admin' && <NavProjects projects={projects} />}
+        <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={userData} />
