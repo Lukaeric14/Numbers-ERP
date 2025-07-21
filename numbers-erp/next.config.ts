@@ -3,7 +3,6 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
-  swcMinify: true,
   eslint: {
     // Allow production builds to successfully complete even with ESLint errors
     ignoreDuringBuilds: true,
