@@ -120,15 +120,19 @@ export function useDashboardData() {
           student_name: `${lesson.students?.first_name || ''} ${lesson.students?.last_name || ''}`.trim() || 'Unknown Student'
         })) || []
         
-        // 6. Lessons chart data (last 30 days)
-        const thirtyDaysAgo = new Date()
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+        // 6. Lessons chart data (3 months back to 1 month forward to support all time ranges)
+        const threeMonthsAgo = new Date()
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
+        
+        const oneMonthForward = new Date()
+        oneMonthForward.setMonth(oneMonthForward.getMonth() + 1)
         
         const { data: chartLessonsData, error: chartLessonsError } = await supabase
           .from('lessons')
           .select('start_time')
           .eq('workspace_id', workspaceId)
-          .gte('start_time', thirtyDaysAgo.toISOString())
+          .gte('start_time', threeMonthsAgo.toISOString())
+          .lte('start_time', oneMonthForward.toISOString())
           .order('start_time', { ascending: true })
         
         if (chartLessonsError) throw chartLessonsError
@@ -140,12 +144,13 @@ export function useDashboardData() {
           dateMap.set(date, (dateMap.get(date) || 0) + 1)
         })
         
-        // Fill in missing dates with 0 for the last 30 days
+        // Create chart data for the extended range (3 months back to 1 month forward)
         const lessonsChartData = []
-        for (let i = 29; i >= 0; i--) {
-          const date = new Date()
-          date.setDate(date.getDate() - i)
-          const dateStr = date.toISOString().split('T')[0]
+        const startDate = new Date(threeMonthsAgo)
+        const endDate = new Date(oneMonthForward)
+        
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+          const dateStr = d.toISOString().split('T')[0]
           lessonsChartData.push({
             date: dateStr,
             lessons: dateMap.get(dateStr) || 0
