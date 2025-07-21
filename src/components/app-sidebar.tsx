@@ -4,15 +4,18 @@ import * as React from "react"
 import {
   BookOpen,
   Bot,
-  Command,
+  Calculator,
   Frame,
   LifeBuoy,
   Map,
   PieChart,
   Send,
   Settings2,
-  SquareTerminal,
+  Users,
+  DollarSign,
+  Calendar,
 } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 
 import { NavMain } from "@/components/nav-main"
 import { NavProjects } from "@/components/nav-projects"
@@ -28,71 +31,62 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
+const navData = {
   navMain: [
     {
-      title: "Playground",
+      title: "Students",
       url: "#",
-      icon: SquareTerminal,
+      icon: Users,
       isActive: true,
       items: [
         {
-          title: "History",
+          title: "All Students",
           url: "#",
         },
         {
-          title: "Starred",
+          title: "Add Student",
           url: "#",
         },
         {
-          title: "Settings",
+          title: "Student Groups",
           url: "#",
         },
       ],
     },
     {
-      title: "Models",
-      url: "#",
-      icon: Bot,
-      items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
+      title: "Tutoring",
       url: "#",
       icon: BookOpen,
       items: [
         {
-          title: "Introduction",
+          title: "Sessions",
           url: "#",
         },
         {
-          title: "Get Started",
+          title: "Schedule",
           url: "#",
         },
         {
-          title: "Tutorials",
+          title: "Tutors",
+          url: "#",
+        },
+      ],
+    },
+    {
+      title: "Billing",
+      url: "#",
+      icon: DollarSign,
+      items: [
+        {
+          title: "Invoices",
           url: "#",
         },
         {
-          title: "Changelog",
+          title: "Payments",
+          url: "#",
+        },
+        {
+          title: "Reports",
           url: "#",
         },
       ],
@@ -107,15 +101,11 @@ const data = {
           url: "#",
         },
         {
-          title: "Team",
+          title: "Users",
           url: "#",
         },
         {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
+          title: "Preferences",
           url: "#",
         },
       ],
@@ -135,24 +125,32 @@ const data = {
   ],
   projects: [
     {
-      name: "Design Engineering",
+      name: "Math Tutoring",
       url: "#",
-      icon: Frame,
+      icon: Calculator,
     },
     {
-      name: "Sales & Marketing",
+      name: "Science Tutoring",
       url: "#",
-      icon: PieChart,
+      icon: Bot,
     },
     {
-      name: "Travel",
+      name: "Language Arts",
       url: "#",
-      icon: Map,
+      icon: BookOpen,
     },
   ],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user } = useAuth()
+
+  const userData = {
+    name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User',
+    email: user?.email || 'user@example.com',
+    avatar: user?.user_metadata?.avatar_url || '/avatars/user.jpg',
+  }
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -161,11 +159,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton size="lg" asChild>
               <a href="#">
                 <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <Command className="size-4" />
+                  <Calculator className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">Acme Inc</span>
-                  <span className="truncate text-xs">Enterprise</span>
+                  <span className="truncate font-medium">Numbers ERP</span>
+                  <span className="truncate text-xs">Tutoring Center</span>
                 </div>
               </a>
             </SidebarMenuButton>
@@ -173,12 +171,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavMain items={navData.navMain} />
+        <NavProjects projects={navData.projects} />
+        <NavSecondary items={navData.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={userData} />
       </SidebarFooter>
     </Sidebar>
   )

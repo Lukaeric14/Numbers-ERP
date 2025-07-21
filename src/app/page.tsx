@@ -13,10 +13,12 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import { ProtectedRoute } from "@/components/protected-route"
 
 export default function Dashboard() {
   return (
-    <SidebarProvider>
+    <ProtectedRoute>
+      <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2">
@@ -50,6 +52,7 @@ export default function Dashboard() {
           </div>
         </div>
       </SidebarInset>
-    </SidebarProvider>
+      </SidebarProvider>
+    </ProtectedRoute>
   )
 }
