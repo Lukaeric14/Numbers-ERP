@@ -1,16 +1,55 @@
-export default function Home() {
-  const timestamp = new Date().toISOString();
-  
+import { AppSidebar } from "@/components/app-sidebar"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import { Separator } from "@/components/ui/separator"
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
+
+export default function Dashboard() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-4xl font-bold mb-8">Numbers ERP</h1>
-      <p className="text-lg">Welcome to the Tutoring Center Platform</p>
-      <div className="mt-8 p-6 bg-gray-100 rounded-lg">
-        <h2 className="text-2xl font-semibold mb-4">Static Test Page</h2>
-        <p>This is a simple test page to verify Vercel deployment.</p>
-        <p className="text-sm text-gray-600 mt-4">Build time: {timestamp}</p>
-        <p className="text-sm text-gray-600">If you can see this, the page is loading correctly!</p>
-      </div>
-    </main>
-  );
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator
+              orientation="vertical"
+              className="mr-2 data-[orientation=vertical]:h-4"
+            />
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem className="hidden md:block">
+                  <BreadcrumbLink href="#">
+                    Numbers ERP
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden md:block" />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Dashboard</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+        </header>
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+          <div className="min-h-[100vh] flex-1 rounded-xl border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
+            <div className="text-center">
+              <h1 className="text-2xl font-semibold text-muted-foreground mb-2">Welcome to Numbers ERP</h1>
+              <p className="text-muted-foreground">Your dashboard is ready to be customized</p>
+            </div>
+          </div>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
+  )
 }
