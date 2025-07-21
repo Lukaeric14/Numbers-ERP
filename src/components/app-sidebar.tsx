@@ -8,15 +8,16 @@ import {
   Frame,
   LifeBuoy,
   Map,
-  PieChart,
+  BarChart3,
   Send,
-  Settings2,
+  Settings,
   Users,
   DollarSign,
   Calendar,
   type LucideIcon,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { useContent } from "@/contexts/content-context"
 
 import { NavMain } from "@/components/nav-main"
 import { NavProjects } from "@/components/nav-projects"
@@ -53,62 +54,62 @@ type NavItems = {
 
 const navItems: NavItems = {
   admin: [
-    { label: "Dashboard", path: "/dashboard", icon: PieChart },
-    { label: "Calendar", path: "/calendar", icon: Calendar },
+    { label: "Dashboard", path: "dashboard", icon: BarChart3 },
+    { label: "Calendar", path: "calendar", icon: Calendar },
     {
       label: "Students",
       icon: Users,
       children: [
-        { label: "All Students", path: "/students" },
-        { label: "Add Student", path: "/students/new" }
+        { label: "All Students", path: "students" },
+        { label: "Add Student", path: "students/new" }
       ]
     },
     {
       label: "Tutoring",
       icon: BookOpen,
       children: [
-        { label: "Services", path: "/services" },
-        { label: "Tutors", path: "/tutors" },
-        { label: "Lessons", path: "/lessons" }
+        { label: "Services", path: "services" },
+        { label: "Tutors", path: "tutors" },
+        { label: "Lessons", path: "lessons" }
       ]
     },
     {
       label: "Billing",
       icon: DollarSign,
       children: [
-        { label: "Invoices", path: "/invoices" },
-        { label: "Reports", path: "/reports" }
+        { label: "Invoices", path: "invoices" },
+        { label: "Reports", path: "reports" }
       ]
     },
     {
       label: "Settings",
-      icon: Settings2,
+      icon: Settings,
       children: [
-        { label: "General", path: "/settings/general" },
-        { label: "Users", path: "/settings/users" },
-        { label: "Preferences", path: "/settings/preferences" }
+        { label: "General", path: "settings/general" },
+        { label: "Users", path: "settings/users" },
+        { label: "Preferences", path: "settings/preferences" }
       ]
     }
   ],
 
   tutor: [
-    { label: "Calendar", path: "/calendar", icon: Calendar },
-    { label: "My Lessons", path: "/lessons", icon: BookOpen },
-    { label: "Students", path: "/students", icon: Users },
-    { label: "Profile", path: "/profile", icon: Settings2 }
+    { label: "Calendar", path: "calendar", icon: Calendar },
+    { label: "My Lessons", path: "lessons", icon: BookOpen },
+    { label: "Students", path: "students", icon: Users },
+    { label: "Profile", path: "profile", icon: Settings }
   ],
 
   parent: [
-    { label: "Calendar", path: "/calendar", icon: Calendar },
-    { label: "My Students", path: "/students", icon: Users },
-    { label: "Invoices", path: "/invoices", icon: DollarSign },
-    { label: "Account", path: "/profile", icon: Settings2 }
+    { label: "Calendar", path: "calendar", icon: Calendar },
+    { label: "My Students", path: "students", icon: Users },
+    { label: "Invoices", path: "invoices", icon: DollarSign },
+    { label: "Account", path: "profile", icon: Settings }
   ],
 
   student: [
-    { label: "Calendar", path: "/calendar", icon: Calendar },
-    { label: "My Lessons", path: "/lessons", icon: BookOpen },
-    { label: "Profile", path: "/profile", icon: Settings2 }
+    { label: "Calendar", path: "calendar", icon: Calendar },
+    { label: "My Lessons", path: "lessons", icon: BookOpen },
+    { label: "Profile", path: "profile", icon: Settings }
   ]
 };
 
@@ -145,6 +146,7 @@ const projects = [
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, userRole } = useAuth()
+  const { setActiveContent } = useContent()
 
   const userData = {
     name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User',
@@ -155,8 +157,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   // Debug: Log user role from context
   console.log('User role from context:', userRole)
   
-  // Use role from auth context, default to 'student' if not set
-  const currentUserRole = userRole || 'student'
+  // Don't render sidebar until we have the user role to prevent flash
+  if (!userRole) {
+    // Return placeholder to reserve space and prevent layout shift
+    return (
+      <Sidebar variant="inset" {...props}>
+        <div className="h-full w-full" />
+      </Sidebar>
+    )
+  }
+  
+  // Use role from auth context
+  const currentUserRole = userRole
   
   // Get navigation items based on user role
   const currentNavItems = navItems[currentUserRole as keyof typeof navItems] || navItems.student
@@ -164,11 +176,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   // Transform navigation items to match NavMain expected format
   const transformedNavItems = currentNavItems.map(item => ({
     title: item.label,
-    url: item.path || "#",
+    url: "#",
     icon: item.icon,
+    onClick: item.path ? () => setActiveContent(item.path as any) : undefined,
     items: item.children?.map((child: NavChild) => ({
       title: child.label,
-      url: child.path,
+      url: "#",
+      onClick: () => setActiveContent(child.path as any)
     }))
   }))
 

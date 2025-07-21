@@ -50,12 +50,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         setUser(session.user)
         setIsAuthenticated(true)
-        // Set loading to false immediately, then fetch role in background
+        // Fetch role immediately alongside session check
+        const role = await fetchUserRole(session.user.id)
+        setUserRole(role)
         setLoading(false)
-        // Fetch role in background without blocking
-        fetchUserRole(session.user.id).then(role => {
-          setUserRole(role)
-        })
       } else {
         setLoading(false)
       }
