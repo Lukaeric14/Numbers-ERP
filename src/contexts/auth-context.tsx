@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       lastName = nameParts.slice(1).join(' ') || ''
     }
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -105,6 +105,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     })
+
+    // If signup successful, create app_users entry with role detection
+    if (!error && data.user) {
+      try {
+        // Check if user is a student
+        const { data: studentData } = await supabase
+          .from('students')
+          .select('workspace_id')
+          .eq('email', email)
+          .single()
+
+        // Check if user is a parent
+        const { data: parentData } = await supabase
+          .from('parents')
+          .select('workspace_id')
+          .eq('email', email)
+          .single()
+
+        let role = 'student' // default
+        let workspace_id = null
+
+        if (studentData) {
+          role = 'student'
+          workspace_id = studentData.workspace_id
+        } else if (parentData) {
+          role = 'parent'
+          workspace_id = parentData.workspace_id
+        }
+
+        // Create app_users entry
+        const { error: appUserError } = await supabase
+          .from('app_users')
+          .insert({
+            id: data.user.id,
+            email: email,
+            role: role,
+            workspace_id: workspace_id,
+          })
+
+        if (appUserError) {
+          console.error('Error creating app_users entry:', appUserError)
+          // Don't fail the signup for this
+        }
+      } catch (roleError) {
+        console.error('Error during role assignment:', roleError)
+        // Don't fail the signup for this
+      }
+    }
+
     return { error }
   }
 
