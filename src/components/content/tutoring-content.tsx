@@ -1,17 +1,7 @@
 "use client"
 
-export function ServicesContent() {
-  return (
-    <div className="min-h-[100vh] flex-1 rounded-xl border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold text-muted-foreground mb-2">Welcome to Services</h1>
-        <p className="text-muted-foreground">Services management will be displayed here</p>
-      </div>
-    </div>
-  )
-}
-
 import * as React from "react"
+import { useEffect, useState } from 'react'
 import {
   IconChevronDown,
   IconChevronLeft,
@@ -49,7 +39,6 @@ import { supabase } from '@/lib/supabase'
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import React, { useEffect, useState } from 'react';
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Badge } from "@/components/ui/badge"
@@ -127,9 +116,15 @@ interface TutorEditFormProps {
 
 export function TutorsContent() {
   const [showAddForm, setShowAddForm] = React.useState(false)
+  
+
 
   const handleTutorAdded = () => {
     setShowAddForm(false)
+  }
+  
+  const handleAddTutor = () => {
+    setShowAddForm(true);
   }
 
   return (
@@ -137,7 +132,7 @@ export function TutorsContent() {
       {showAddForm ? (
         <AddTutorContent onTutorAdded={handleTutorAdded} />
       ) : (
-        <TutorsDataTable onAddTutor={() => setShowAddForm(true)} />
+        <TutorsDataTable onAddTutor={handleAddTutor} />
       )}
     </div>
   )
@@ -288,7 +283,8 @@ export function AddTutorContent({ onTutorAdded }: { onTutorAdded?: () => void })
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Basic Information */}
+          <form onSubmit={handleSubmit((data: AddTutorFormData) => createTutor(data))} className="space-y-6">
+            {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <IconUser className="h-4 w-4" />
@@ -467,6 +463,7 @@ export function AddTutorContent({ onTutorAdded }: { onTutorAdded?: () => void })
               </Button>
             </div>
           </div>
+          </form>
         </CardContent>
       </Card>
     </div>
@@ -752,7 +749,13 @@ function TutorsDataTable({ onAddTutor }: { onAddTutor: () => void }) {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Button onClick={onAddTutor} size="sm">
+
+            <Button 
+              onClick={() => {
+onAddTutor()
+              }} 
+              size="sm"
+            >
               <IconPlus className="mr-2 h-4 w-4" />
               Add Tutor
             </Button>
@@ -1093,6 +1096,17 @@ function TutorEditForm({ tutor, onTutorUpdated, onClose }: TutorEditFormProps) {
       </div>
       
     </form>
+  )
+}
+
+export function ServicesContent() {
+  return (
+    <div className="min-h-[100vh] flex-1 rounded-xl border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-2xl font-semibold text-muted-foreground mb-2">Welcome to Services</h1>
+        <p className="text-muted-foreground">Services management will be displayed here</p>
+      </div>
+    </div>
   )
 }
 
