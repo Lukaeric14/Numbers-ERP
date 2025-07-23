@@ -173,7 +173,7 @@ export function InvoicesContent() {
 
       {/* Edit Invoice Sheet */}
       <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
-        <SheetContent className="w-[400px] sm:w-[540px] p-6">
+        <SheetContent className="w-full sm:max-w-4xl p-6">
           <SheetHeader>
             <SheetTitle>Edit Invoice</SheetTitle>
             <SheetDescription>

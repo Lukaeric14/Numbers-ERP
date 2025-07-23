@@ -1,0 +1,203 @@
+# Page snapshot
+
+```yaml
+- alert
+- list:
+  - listitem:
+    - link "Numbers ERP Tutoring Center":
+      - /url: "#"
+- text: Platform
+- list:
+  - listitem:
+    - button "Dashboard"
+  - listitem:
+    - button "Calendar"
+  - listitem:
+    - button "Students"
+  - listitem:
+    - button "Tutoring"
+  - listitem:
+    - button "Billing"
+  - listitem:
+    - button "Settings"
+- text: Projects
+- list:
+  - listitem:
+    - link "Math Tutoring":
+      - /url: "#"
+    - button "More"
+  - listitem:
+    - link "Science Tutoring":
+      - /url: "#"
+    - button "More"
+  - listitem:
+    - link "Language Arts":
+      - /url: "#"
+    - button "More"
+  - listitem:
+    - button "More"
+- list:
+  - listitem:
+    - link "Support":
+      - /url: "#"
+  - listitem:
+    - link "Feedback":
+      - /url: "#"
+- list:
+  - listitem:
+    - button "CN luka luka@dgcgroup.co"
+- main:
+  - button "Toggle Sidebar"
+  - navigation "breadcrumb":
+    - list:
+      - listitem:
+        - link "Numbers ERP":
+          - /url: "#"
+      - listitem:
+        - link "Dashboard" [disabled]
+  - text: Total Revenue $340.00
+  - img
+  - text: +12.5% Trending up this month
+  - img
+  - text: Invoices due this month New Customers 2
+  - img
+  - text: "-20% Down 20% this period"
+  - img
+  - text: Students created this month Active Accounts 2
+  - img
+  - text: +12.5% Strong user retention
+  - img
+  - text: Total active students Growth Rate -%
+  - img
+  - text: +4.5% Steady performance increase
+  - img
+  - text: "Meets growth projections Total Lessons Total for the this month: 5 lessons"
+  - group:
+    - radio "Last 3 months"
+    - radio "This month" [checked]
+    - radio "This week"
+  - img: Jul 4 Jul 7 Jul 10 Jul 13 Jul 16 Jul 19 Jul 22 Jul 25 Jul 28 Jul 31
+  - text: Jul 11, 2025 Lessons 0 Recent Lessons Manage and view lesson details with advanced filtering
+  - tablist:
+    - tab "All Lessons" [selected]
+  - button "Columns":
+    - img
+    - text: Columns
+    - img
+  - button "Add Lesson":
+    - img
+    - text: Add Lesson
+  - tabpanel "All Lessons":
+    - table:
+      - rowgroup:
+        - row "Select all Lesson Name Service Type Status Date & Time Student":
+          - cell "Select all":
+            - checkbox "Select all"
+          - cell "Lesson Name"
+          - cell "Service Type"
+          - cell "Status"
+          - cell "Date & Time"
+          - cell "Student"
+          - cell
+      - rowgroup:
+        - row "Select row Review + Practice Test Private Math Tutoring Completed Jul 25, 2025 8:00 AM Mark Davis Open menu":
+          - cell "Select row":
+            - checkbox "Select row"
+          - cell "Review + Practice Test":
+            - button "Review + Practice Test"
+          - cell "Private Math Tutoring"
+          - cell "Completed":
+            - img
+            - text: Completed
+          - cell "Jul 25, 2025 8:00 AM"
+          - cell "Mark Davis":
+            - img
+            - text: Mark Davis
+          - cell "Open menu":
+            - button "Open menu":
+              - img
+              - text: Open menu
+        - row "Select row SAT Prep - Math Private Math Tutoring Scheduled Jul 24, 2025 2:30 PM Mark Davis Open menu":
+          - cell "Select row":
+            - checkbox "Select row"
+          - cell "SAT Prep - Math":
+            - button "SAT Prep - Math"
+          - cell "Private Math Tutoring"
+          - cell "Scheduled":
+            - img
+            - text: Scheduled
+          - cell "Jul 24, 2025 2:30 PM"
+          - cell "Mark Davis":
+            - img
+            - text: Mark Davis
+          - cell "Open menu":
+            - button "Open menu":
+              - img
+              - text: Open menu
+        - row "Select row Test with Luka Private Math Tutoring Scheduled Jul 24, 2025 2:30 AM Moh Ali Open menu":
+          - cell "Select row":
+            - checkbox "Select row"
+          - cell "Test with Luka":
+            - button "Test with Luka"
+          - cell "Private Math Tutoring"
+          - cell "Scheduled":
+            - img
+            - text: Scheduled
+          - cell "Jul 24, 2025 2:30 AM"
+          - cell "Moh Ali":
+            - img
+            - text: Moh Ali
+          - cell "Open menu":
+            - button "Open menu":
+              - img
+              - text: Open menu
+        - row "Select row Geometry Session Private Math Tutoring Scheduled Jul 23, 2025 7:00 PM Mark Davis Open menu":
+          - cell "Select row":
+            - checkbox "Select row"
+          - cell "Geometry Session":
+            - button "Geometry Session"
+          - cell "Private Math Tutoring"
+          - cell "Scheduled":
+            - img
+            - text: Scheduled
+          - cell "Jul 23, 2025 7:00 PM"
+          - cell "Mark Davis":
+            - img
+            - text: Mark Davis
+          - cell "Open menu":
+            - button "Open menu":
+              - img
+              - text: Open menu
+        - row "Select row Algebra Review Private Math Tutoring Scheduled Jul 22, 2025 7:00 PM Mark Davis Open menu":
+          - cell "Select row":
+            - checkbox "Select row"
+          - cell "Algebra Review":
+            - button "Algebra Review"
+          - cell "Private Math Tutoring"
+          - cell "Scheduled":
+            - img
+            - text: Scheduled
+          - cell "Jul 22, 2025 7:00 PM"
+          - cell "Mark Davis":
+            - img
+            - text: Mark Davis
+          - cell "Open menu":
+            - button "Open menu":
+              - img
+              - text: Open menu
+    - text: 0 of 5 lesson(s) selected. Rows per page
+    - combobox "Rows per page": "10"
+    - text: Page 1 of 1
+    - button "Go to first page" [disabled]:
+      - text: Go to first page
+      - img
+    - button "Go to previous page" [disabled]:
+      - text: Go to previous page
+      - img
+    - button "Go to next page" [disabled]:
+      - text: Go to next page
+      - img
+    - button "Go to last page" [disabled]:
+      - text: Go to last page
+      - img
+```
