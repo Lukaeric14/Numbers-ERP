@@ -478,6 +478,35 @@ function InvoicesDataTable({ invoices, isLoading, onEditInvoice, onRefresh, onIn
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
   const [globalFilter, setGlobalFilter] = React.useState("")
+  const [invoiceToDelete, setInvoiceToDelete] = React.useState<Invoice | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false)
+
+  // Delete confirmation function
+  const confirmDeleteInvoice = async () => {
+    if (!invoiceToDelete) return
+    
+    try {
+      const { error } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', invoiceToDelete.id)
+      
+      if (error) {
+        console.error('Error deleting invoice:', error)
+        toast.error('Failed to delete invoice')
+        return
+      }
+      
+      toast.success('Invoice deleted successfully')
+      onRefresh()
+    } catch (error) {
+      console.error('Error deleting invoice:', error)
+      toast.error('An unexpected error occurred')
+    } finally {
+      setIsDeleteDialogOpen(false)
+      setInvoiceToDelete(null)
+    }
+  }
 
   const columns: ColumnDef<Invoice>[] = [
     {
@@ -625,26 +654,9 @@ function InvoicesDataTable({ invoices, isLoading, onEditInvoice, onRefresh, onIn
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={async () => {
-                  if (confirm('Are you sure you want to delete this invoice?')) {
-                    try {
-                      const { error } = await supabase
-                        .from('invoices')
-                        .delete()
-                        .eq('id', invoice.id)
-                      
-                      if (error) {
-                        console.error('Error deleting invoice:', error)
-                        toast.error('Failed to delete invoice')
-                      } else {
-                        toast.success('Invoice deleted successfully')
-                        onRefresh()
-                      }
-                    } catch (error) {
-                      console.error('Error deleting invoice:', error)
-                      toast.error('An unexpected error occurred')
-                    }
-                  }
+                onClick={() => {
+                  setInvoiceToDelete(invoice)
+                  setIsDeleteDialogOpen(true)
                 }}
                 className="text-red-600"
               >
@@ -971,10 +983,14 @@ function InvoiceEditForm({ invoice, onInvoiceUpdated, onClose }: InvoiceEditForm
     }
   }
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
-      return
-    }
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false)
+
+  const handleDeleteClick = () => {
+    setIsDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    setIsDeleteDialogOpen(false)
 
     try {
       const { error } = await supabase
@@ -1009,7 +1025,7 @@ function InvoiceEditForm({ invoice, onInvoiceUpdated, onClose }: InvoiceEditForm
         <Button
           variant="destructive"
           size="sm"
-          onClick={handleDelete}
+          onClick={handleDeleteClick}
           className="ml-auto"
         >
           Delete Invoice

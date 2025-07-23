@@ -19,6 +19,7 @@ import {
   IconSearch,
   IconCurrencyDollar,
   IconX,
+  IconTrash
 } from "@tabler/icons-react"
 import {
   ColumnDef,
@@ -41,6 +42,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller } from "react-hook-form";
 
 import { useIsMobile } from "@/hooks/use-mobile"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -488,6 +497,8 @@ function TutorsDataTable({ onAddTutor }: { onAddTutor: () => void }) {
   const [rowSelection, setRowSelection] = React.useState({})
   const [selectedTutor, setSelectedTutor] = React.useState<Tutor | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false)
+  const [tutorToDelete, setTutorToDelete] = React.useState<Tutor | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false)
   const isMobile = useIsMobile()
 
   // Fetch tutors data
@@ -531,6 +542,34 @@ function TutorsDataTable({ onAddTutor }: { onAddTutor: () => void }) {
 
   const handleTutorUpdate = () => {
     fetchTutors()
+  }
+
+  // Delete confirmation function
+  const confirmDeleteTutor = async () => {
+    if (!tutorToDelete) return
+    
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .delete()
+        .eq('id', tutorToDelete.id)
+      
+      if (error) {
+        console.error('Error deleting tutor:', error)
+        toast.error('Failed to delete tutor')
+        return
+      }
+      
+      // Update local state
+      setTutors(prev => prev.filter(t => t.id !== tutorToDelete.id))
+      toast.success('Tutor deleted successfully')
+    } catch (error) {
+      console.error('Error deleting tutor:', error)
+      toast.error('Failed to delete tutor')
+    } finally {
+      setIsDeleteDialogOpen(false)
+      setTutorToDelete(null)
+    }
   }
 
   // Table columns
@@ -655,28 +694,9 @@ function TutorsDataTable({ onAddTutor }: { onAddTutor: () => void }) {
       cell: ({ row }) => {
         const tutor = row.original
         
-        const handleDelete = async () => {
-          if (!confirm('Are you sure you want to delete this tutor?')) return
-          
-          try {
-            const { error } = await supabase
-              .from('employees')
-              .delete()
-              .eq('id', tutor.id)
-            
-            if (error) {
-              console.error('Error deleting tutor:', error)
-              toast.error('Failed to delete tutor')
-              return
-            }
-            
-            // Update local state
-            setTutors(prev => prev.filter(t => t.id !== tutor.id))
-            toast.success('Tutor deleted successfully')
-          } catch (error) {
-            console.error('Error deleting tutor:', error)
-            toast.error('Failed to delete tutor')
-          }
+        const handleDelete = () => {
+          setTutorToDelete(tutor)
+          setIsDeleteDialogOpen(true)
         }
         
         return (
@@ -959,6 +979,41 @@ onAddTutor()
           </DrawerFooter>
         </DrawerContent>
       </Drawer>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <IconTrash className="h-5 w-5 text-red-600" />
+              Delete Tutor
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{tutorToDelete?.first_name} {tutorToDelete?.last_name}</strong>? 
+              This action cannot be undone and will permanently remove the tutor from your system.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsDeleteDialogOpen(false)
+                setTutorToDelete(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDeleteTutor}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              <IconTrash className="mr-2 h-4 w-4" />
+              Delete Tutor
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
@@ -1407,6 +1462,35 @@ function ServicesDataTable({ services, isLoading, onEditService, onRefresh, onSe
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
   const [globalFilter, setGlobalFilter] = React.useState("")
+  const [serviceToDelete, setServiceToDelete] = React.useState<Service | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false)
+
+  // Delete confirmation function
+  const confirmDeleteService = async () => {
+    if (!serviceToDelete) return
+    
+    try {
+      const { error } = await supabase
+        .from('services')
+        .delete()
+        .eq('id', serviceToDelete.id)
+      
+      if (error) {
+        console.error('Error deleting service:', error)
+        toast.error('Failed to delete service')
+        return
+      }
+      
+      toast.success('Service deleted successfully')
+      onRefresh()
+    } catch (error) {
+      console.error('Error deleting service:', error)
+      toast.error('An unexpected error occurred')
+    } finally {
+      setIsDeleteDialogOpen(false)
+      setServiceToDelete(null)
+    }
+  }
 
   const columns: ColumnDef<Service>[] = [
     {
@@ -1535,26 +1619,9 @@ function ServicesDataTable({ services, isLoading, onEditService, onRefresh, onSe
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={async () => {
-                  if (confirm('Are you sure you want to delete this service?')) {
-                    try {
-                      const { error } = await supabase
-                        .from('services')
-                        .delete()
-                        .eq('id', service.id)
-                      
-                      if (error) {
-                        console.error('Error deleting service:', error)
-                        toast.error('Failed to delete service')
-                      } else {
-                        toast.success('Service deleted successfully')
-                        onRefresh()
-                      }
-                    } catch (error) {
-                      console.error('Error deleting service:', error)
-                      toast.error('An unexpected error occurred')
-                    }
-                  }
+                onClick={() => {
+                  setServiceToDelete(service)
+                  setIsDeleteDialogOpen(true)
                 }}
                 className="text-red-600"
               >
@@ -1732,6 +1799,41 @@ function ServicesDataTable({ services, isLoading, onEditService, onRefresh, onSe
           </div>
         </div>
       </CardContent>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <IconTrash className="h-5 w-5 text-red-600" />
+              Delete Service
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the service <strong>{serviceToDelete?.name}</strong>? 
+              This action cannot be undone and will permanently remove the service from your system.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsDeleteDialogOpen(false)
+                setServiceToDelete(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDeleteService}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              <IconTrash className="mr-2 h-4 w-4" />
+              Delete Service
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
@@ -2486,6 +2588,8 @@ function LessonsDataTable({ onAddLesson, onLessonSelect, refreshTrigger }: {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
+  const [lessonToDelete, setLessonToDelete] = React.useState<Lesson | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false)
   const isMobile = useIsMobile()
 
   // Fetch lessons data
@@ -2537,6 +2641,33 @@ function LessonsDataTable({ onAddLesson, onLessonSelect, refreshTrigger }: {
   React.useEffect(() => {
     fetchLessons()
   }, [fetchLessons, refreshTrigger])
+
+  // Delete confirmation function
+  const confirmDeleteLesson = async () => {
+    if (!lessonToDelete) return
+    
+    try {
+      const { error } = await supabase
+        .from('lessons')
+        .delete()
+        .eq('id', lessonToDelete.id)
+      
+      if (error) {
+        console.error('Error deleting lesson:', error)
+        toast.error('Failed to delete lesson')
+        return
+      }
+      
+      toast.success('Lesson deleted successfully')
+      fetchLessons()
+    } catch (error) {
+      console.error('Error deleting lesson:', error)
+      toast.error('Failed to delete lesson')
+    } finally {
+      setIsDeleteDialogOpen(false)
+      setLessonToDelete(null)
+    }
+  }
 
   // Table columns
   const columns: ColumnDef<Lesson>[] = [
@@ -2639,24 +2770,9 @@ function LessonsDataTable({ onAddLesson, onLessonSelect, refreshTrigger }: {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={async () => {
-                  if (confirm('Are you sure you want to delete this lesson?')) {
-                    try {
-                      const { error } = await supabase
-                        .from('lessons')
-                        .delete()
-                        .eq('id', lesson.id)
-                      
-                      if (error) {
-                        toast.error('Failed to delete lesson')
-                      } else {
-                        toast.success('Lesson deleted successfully')
-                        fetchLessons()
-                      }
-                    } catch (error) {
-                      toast.error('Failed to delete lesson')
-                    }
-                  }
+                onClick={() => {
+                  setLessonToDelete(lesson)
+                  setIsDeleteDialogOpen(true)
                 }}
                 className="text-red-600"
               >
@@ -2829,6 +2945,41 @@ function LessonsDataTable({ onAddLesson, onLessonSelect, refreshTrigger }: {
           </div>
         </div>
       </CardContent>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <IconTrash className="h-5 w-5 text-red-600" />
+              Delete Lesson
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the lesson <strong>{lessonToDelete?.title}</strong>? 
+              This action cannot be undone and will permanently remove the lesson from your system.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsDeleteDialogOpen(false)
+                setLessonToDelete(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDeleteLesson}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              <IconTrash className="mr-2 h-4 w-4" />
+              Delete Lesson
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

@@ -7,7 +7,8 @@ import { StudentsContent, AddStudentContent } from '@/components/content/student
 import { ServicesContent, TutorsContent, LessonsContent } from '@/components/content/tutoring-content'
 import { InvoicesContent } from '@/components/content/invoices-content'
 import { BalancesContent } from '@/components/content/balances-content'
-import { ReportsContent } from '@/components/content/billing-content'
+import { PayrollContent } from '@/components/content/payroll-content'
+import { ReportsContent } from '@/components/content/reports-content'
 import { GeneralSettingsContent, UsersSettingsContent, PreferencesSettingsContent } from '@/components/content/settings-content'
 import { ProfileContent } from '@/components/content/profile-content'
 
@@ -33,6 +34,8 @@ export function ContentRenderer() {
       return <InvoicesContent />
     case 'balances':
       return <BalancesContent />
+    case 'payroll':
+      return <PayrollContent />
     case 'reports':
       return <ReportsContent />
     case 'settings/general':

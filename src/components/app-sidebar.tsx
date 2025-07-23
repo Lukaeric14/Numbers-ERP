@@ -79,6 +79,7 @@ const navItems: NavItems = {
       children: [
         { label: "Invoices", path: "invoices" },
         { label: "Balances", path: "balances" },
+        { label: "Payroll", path: "payroll" },
         { label: "Reports", path: "reports" }
       ]
     },
