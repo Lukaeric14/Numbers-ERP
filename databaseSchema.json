@@ -65,6 +65,8 @@ CREATE TABLE public.invoices (
   paid_at timestamp with time zone,
   quickbooks_invoice_id text,
   created_at timestamp with time zone DEFAULT now(),
+  invoice_number text NOT NULL,
+  line_item_ids uuid[] DEFAULT '{}',
   CONSTRAINT invoices_pkey PRIMARY KEY (id),
   CONSTRAINT invoices_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id),
   CONSTRAINT invoices_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.parents(id),
@@ -84,6 +86,9 @@ CREATE TABLE public.lessons (
   status text DEFAULT 'scheduled'::text CHECK (status = ANY (ARRAY['scheduled'::text, 'completed'::text, 'canceled'::text])),
   invoice_id uuid,
   created_at timestamp with time zone DEFAULT now(),
+  billing_status text DEFAULT 'unbilled'::text CHECK (billing_status = ANY (ARRAY['unbilled'::text, 'invoiced'::text, 'paid'::text])),
+  rate numeric DEFAULT 0,
+  duration_minutes integer DEFAULT 60,
   CONSTRAINT lessons_pkey PRIMARY KEY (id),
   CONSTRAINT lessons_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id),
   CONSTRAINT lessons_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.locations(id),
@@ -108,6 +113,9 @@ CREATE TABLE public.parents (
   email text NOT NULL,
   phone text,
   created_at timestamp with time zone DEFAULT now(),
+  current_balance numeric DEFAULT 0,
+  total_billed numeric DEFAULT 0,
+  total_paid numeric DEFAULT 0,
   CONSTRAINT parents_pkey PRIMARY KEY (id),
   CONSTRAINT parents_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id)
 );

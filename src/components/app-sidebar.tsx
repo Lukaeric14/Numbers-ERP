@@ -78,6 +78,7 @@ const navItems: NavItems = {
       icon: DollarSign,
       children: [
         { label: "Invoices", path: "invoices" },
+        { label: "Balances", path: "balances" },
         { label: "Reports", path: "reports" }
       ]
     },

@@ -5,7 +5,9 @@ import { DashboardContent } from '@/components/content/dashboard-content'
 import { CalendarContent } from '@/components/content/calendar-content'
 import { StudentsContent, AddStudentContent } from '@/components/content/students-content'
 import { ServicesContent, TutorsContent, LessonsContent } from '@/components/content/tutoring-content'
-import { InvoicesContent, ReportsContent } from '@/components/content/billing-content'
+import { InvoicesContent } from '@/components/content/invoices-content'
+import { BalancesContent } from '@/components/content/balances-content'
+import { ReportsContent } from '@/components/content/billing-content'
 import { GeneralSettingsContent, UsersSettingsContent, PreferencesSettingsContent } from '@/components/content/settings-content'
 import { ProfileContent } from '@/components/content/profile-content'
 
@@ -29,6 +31,8 @@ export function ContentRenderer() {
       return <LessonsContent />
     case 'invoices':
       return <InvoicesContent />
+    case 'balances':
+      return <BalancesContent />
     case 'reports':
       return <ReportsContent />
     case 'settings/general':

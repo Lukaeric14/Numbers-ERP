@@ -11,6 +11,7 @@ type ContentType =
   | 'tutors'
   | 'lessons'
   | 'invoices'
+  | 'balances'
   | 'reports'
   | 'settings/general'
   | 'settings/users'
@@ -43,6 +44,7 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       'tutors': ['Numbers ERP', 'Tutoring', 'Tutors'],
       'lessons': ['Numbers ERP', 'Lessons'],
       'invoices': ['Numbers ERP', 'Billing', 'Invoices'],
+      'balances': ['Numbers ERP', 'Billing', 'Balances'],
       'reports': ['Numbers ERP', 'Billing', 'Reports'],
       'settings/general': ['Numbers ERP', 'Settings', 'General'],
       'settings/users': ['Numbers ERP', 'Settings', 'Users'],

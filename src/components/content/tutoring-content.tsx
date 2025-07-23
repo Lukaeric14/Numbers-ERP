@@ -1868,6 +1868,21 @@ function ServiceEditForm({ service, onServiceUpdated, onClose }: ServiceEditForm
   )
 }
 
+// Invoice type definition
+type Invoice = {
+  id: string
+  workspace_id: string
+  student_id: string
+  invoice_number: string
+  amount_due: number
+  amount_paid: number
+  due_date: string
+  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
+  description?: string
+  created_at: string
+  student_name?: string
+}
+
 // Lesson type definition
 type Lesson = {
   id: string
@@ -2015,6 +2030,16 @@ const addLessonSchema = z.object({
   start_time: z.string().min(1, "Start time is required"),
   end_time: z.string().min(1, "End time is required"),
   status: z.enum(["scheduled", "completed", "canceled"]).default("scheduled"),
+  custom_rate: z.string().optional(),
+}).refine((data) => {
+  // If service_id is 'custom', custom_rate is required
+  if (data.service_id === 'custom') {
+    return data.custom_rate && data.custom_rate.trim() !== '' && parseFloat(data.custom_rate) > 0
+  }
+  return true
+}, {
+  message: "Custom rate is required and must be greater than 0 when Custom Rate is selected",
+  path: ["custom_rate"]
 })
 
 type AddLessonFormData = z.infer<typeof addLessonSchema>
@@ -2117,27 +2142,64 @@ export function AddLessonContent({ onLessonAdded }: { onLessonAdded?: () => void
 
       const workspace_id = currentUserData.workspace_id
 
+      // Get service rate for billing
+      let serviceRate = 0
+      if (data.service_id === 'custom') {
+        // Use custom rate
+        serviceRate = parseFloat(data.custom_rate || '0')
+      } else if (data.service_id) {
+        // Get rate from service
+        const { data: serviceData } = await supabase
+          .from('services')
+          .select('price_per_hour')
+          .eq('id', data.service_id)
+          .single()
+        
+        serviceRate = serviceData?.price_per_hour || 0
+      }
+
+      // Calculate duration in minutes
+      const startTime = new Date(data.start_time)
+      const endTime = new Date(data.end_time)
+      const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60))
+
+      // Log the data being inserted for debugging
+      const insertData = {
+        title: data.title,
+        description: data.description || null,
+        tutor_id: data.tutor_id,
+        student_id: data.student_id,
+        service_id: data.service_id === 'custom' ? null : (data.service_id || null),
+        location_id: data.location_id || null,
+        start_time: data.start_time,
+        end_time: data.end_time,
+        status: data.status,
+        workspace_id,
+        // Add billing fields
+        billing_status: 'unbilled',
+        rate: serviceRate,
+        duration_minutes: durationMinutes
+      }
+      
+      console.log('Attempting to insert lesson with data:', insertData)
+
       // Create lesson record
       const { data: newLesson, error } = await supabase
         .from('lessons')
-        .insert({
-          title: data.title,
-          description: data.description || null,
-          tutor_id: data.tutor_id,
-          student_id: data.student_id,
-          service_id: data.service_id || null,
-          location_id: data.location_id || null,
-          start_time: data.start_time,
-          end_time: data.end_time,
-          status: data.status,
-          workspace_id,
-        })
+        .insert(insertData)
         .select('id')
         .single()
 
       if (error) {
-        console.error('Error creating lesson:', error)
-        toast.error("Failed to create lesson")
+        console.error('Detailed error creating lesson:', {
+          error,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          insertData
+        })
+        toast.error(`Failed to create lesson: ${error.message || 'Unknown error'}`)
         return
       }
 
@@ -2314,6 +2376,7 @@ export function AddLessonContent({ onLessonAdded }: { onLessonAdded?: () => void
                           <SelectValue placeholder="Select service (optional)" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="custom">Custom Rate</SelectItem>
                           {services.map(service => (
                             <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>
                           ))}
@@ -2342,6 +2405,25 @@ export function AddLessonContent({ onLessonAdded }: { onLessonAdded?: () => void
                   />
                 </div>
               </div>
+              
+              {/* Custom Rate Input - Show when Custom is selected */}
+              {watch('service_id') === 'custom' && (
+                <div className="space-y-2">
+                  <Label htmlFor="custom_rate">Custom Rate (per hour) *</Label>
+                  <Input
+                    id="custom_rate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Enter hourly rate (e.g., 50.00)"
+                    {...register('custom_rate')}
+                    className={errors.custom_rate ? "border-red-500" : ""}
+                  />
+                  {errors.custom_rate && (
+                    <p className="text-sm text-red-500">{errors.custom_rate.message}</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Form Actions */}
