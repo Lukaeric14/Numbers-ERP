@@ -72,6 +72,8 @@ interface TutorPayroll {
   pending_lessons: number
   last_lesson_date: string | null
   workspace_id: string
+  lesson_wage_type?: string
+  custom_wage?: number
 }
 
 interface TutorLesson {
@@ -118,7 +120,7 @@ export function PayrollContent() {
       // Fetch tutors (employees with type 'tutor')
       const { data: tutorsData, error: tutorsError } = await supabase
         .from('employees')
-        .select('*')
+        .select('*, lesson_wage_type, custom_wage')
         .eq('workspace_id', workspaceData.workspace_id)
         .eq('type', 'tutor')
         .order('first_name')
@@ -138,7 +140,7 @@ export function PayrollContent() {
             .select(`
               *,
               student:students!student_id(first_name, last_name),
-              service:services!service_id(name)
+              service:services!service_id(name, cost_per_hour)
             `)
             .eq('tutor_id', tutor.id)
             .eq('workspace_id', workspaceData.workspace_id)
@@ -152,8 +154,18 @@ export function PayrollContent() {
           // Calculate total owed (completed lessons that haven't been paid to tutor)
           const totalOwed = completedLessons.reduce((sum, lesson) => {
             const duration = lesson.duration_minutes || 60
-            const rate = lesson.rate || 0
-            const amount = (rate * duration) / 60
+            
+            // Determine tutor cost based on wage type
+            let tutorCost = 0
+            if (tutor.lesson_wage_type === 'custom' && tutor.custom_wage) {
+              // Use tutor's custom wage
+              tutorCost = parseFloat(tutor.custom_wage.toString())
+            } else if (lesson.service?.cost_per_hour) {
+              // Use service cost per hour
+              tutorCost = parseFloat(lesson.service.cost_per_hour.toString())
+            }
+            
+            const amount = (tutorCost * duration) / 60
             return sum + amount
           }, 0)
 
@@ -203,7 +215,7 @@ export function PayrollContent() {
         .select(`
           *,
           student:students!student_id(first_name, last_name),
-          service:services!service_id(name)
+          service:services!service_id(name, cost_per_hour)
         `)
         .eq('tutor_id', tutor.id)
         .eq('workspace_id', workspaceData.workspace_id)
@@ -214,13 +226,27 @@ export function PayrollContent() {
         return
       }
 
-      // Format lessons with calculated amounts
-      const formattedLessons = (lessonsData || []).map(lesson => ({
-        ...lesson,
-        student_name: lesson.student ? `${lesson.student.first_name} ${lesson.student.last_name}` : 'Unknown',
-        service_name: lesson.service?.name || null,
-        calculated_amount: ((lesson.rate || 0) * (lesson.duration_minutes || 60)) / 60
-      }))
+      // Format lessons with calculated amounts using tutor cost
+      const formattedLessons = (lessonsData || []).map(lesson => {
+        const duration = lesson.duration_minutes || 60
+        
+        // Determine tutor cost based on wage type
+        let tutorCost = 0
+        if (tutor.lesson_wage_type === 'custom' && tutor.custom_wage) {
+          // Use tutor's custom wage
+          tutorCost = parseFloat(tutor.custom_wage.toString())
+        } else if (lesson.service?.cost_per_hour) {
+          // Use service cost per hour
+          tutorCost = parseFloat(lesson.service.cost_per_hour.toString())
+        }
+        
+        return {
+          ...lesson,
+          student_name: lesson.student ? `${lesson.student.first_name} ${lesson.student.last_name}` : 'Unknown',
+          service_name: lesson.service?.name || null,
+          calculated_amount: (tutorCost * duration) / 60
+        }
+      })
 
       setSelectedTutor({
         ...tutor,

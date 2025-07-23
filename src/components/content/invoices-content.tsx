@@ -8,6 +8,7 @@ import {
   IconPlus,
   IconBriefcase,
   IconCurrencyDollar,
+  IconTrash,
 } from "@tabler/icons-react"
 import {
   ColumnDef,
@@ -37,6 +38,14 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -704,6 +713,7 @@ function InvoicesDataTable({ invoices, isLoading, onEditInvoice, onRefresh, onIn
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -835,6 +845,34 @@ function InvoicesDataTable({ invoices, isLoading, onEditInvoice, onRefresh, onIn
         </div>
       </CardContent>
     </Card>
+
+    {/* Delete Confirmation Dialog */}
+    <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete Invoice</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete invoice #{invoiceToDelete?.invoice_number}? This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsDeleteDialogOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={confirmDeleteInvoice}
+          >
+            <IconTrash className="mr-2 h-4 w-4" />
+            Delete Invoice
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }
 
@@ -1231,6 +1269,33 @@ function InvoiceEditForm({ invoice, onInvoiceUpdated, onClose }: InvoiceEditForm
           </Button>
         </div>
       </form>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Invoice</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this invoice? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+            >
+              <IconTrash className="mr-2 h-4 w-4" />
+              Delete Invoice
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -83,7 +83,7 @@ interface Parent {
   email: string
   phone?: string
   current_balance: number
-  total_billed: number
+  total_unbilled: number
   total_paid: number
   created_at: string
   student_count?: number
@@ -155,12 +155,33 @@ export function BalancesContent() {
         return
       }
 
-      // Process data to add student count
-      const processedParents = parentsData?.map(parent => ({
-        ...parent,
-        student_count: parent.students?.length || 0,
-        students: undefined // Remove the nested students array
-      })) || []
+      // Process data to add student count and calculate total unbilled
+      const processedParents = await Promise.all(
+        parentsData?.map(async (parent) => {
+          // Get all lessons for this parent's students that are unbilled
+          const { data: unbilledLessons } = await supabase
+            .from('lessons')
+            .select('rate, duration_minutes')
+            .in('student_id', parent.students?.map((s: any) => s.id) || [])
+            .eq('billing_status', 'unbilled')
+            .eq('workspace_id', workspaceData.workspace_id)
+
+          // Calculate total unbilled amount
+          const totalUnbilled = unbilledLessons?.reduce((sum, lesson) => {
+            const duration = lesson.duration_minutes || 60
+            const rate = lesson.rate || 0
+            const amount = (rate * duration) / 60
+            return sum + amount
+          }, 0) || 0
+
+          return {
+            ...parent,
+            student_count: parent.students?.length || 0,
+            total_unbilled: totalUnbilled,
+            students: undefined // Remove the nested students array
+          }
+        }) || []
+      )
 
       setParents(processedParents)
     } catch (error) {
@@ -381,15 +402,15 @@ function ParentBalancesDataTable({ parents, isLoading, onOpenParent, onRefresh }
       },
     },
     {
-      accessorKey: "total_billed",
-      header: "Total Billed",
+      accessorKey: "total_unbilled",
+      header: "Total Unbilled",
       cell: ({ row }) => {
-        const amount = parseFloat(row.getValue("total_billed"))
+        const amount = parseFloat(row.getValue("total_unbilled"))
         const formatted = new Intl.NumberFormat("en-US", {
           style: "currency",
           currency: "USD",
         }).format(amount)
-        return <div className="font-medium">{formatted}</div>
+        return <div className="font-medium text-orange-600">{formatted}</div>
       },
     },
     {
