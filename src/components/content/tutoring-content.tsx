@@ -84,6 +84,7 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetTrigger,
 } from "@/components/ui/sheet"
 import {
   Table,
@@ -1106,13 +1107,760 @@ function TutorEditForm({ tutor, onTutorUpdated, onClose }: TutorEditFormProps) {
   )
 }
 
+// Service type definition
+type Service = {
+  id: string
+  workspace_id: string
+  name: string
+  description?: string
+  price_per_hour?: number
+  cost_per_hour?: number
+  created_at: string
+}
+
 export function ServicesContent() {
+  const [services, setServices] = React.useState<Service[]>([])
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [refreshTrigger, setRefreshTrigger] = React.useState(0)
+  const [selectedService, setSelectedService] = React.useState<Service | null>(null)
+  const [isEditSheetOpen, setIsEditSheetOpen] = React.useState(false)
+
+  // Fetch services
+  React.useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data: userData } = await supabase
+          .from('app_users')
+          .select('workspace_id')
+          .eq('id', user.id)
+          .single()
+
+        if (!userData?.workspace_id) return
+
+        const { data: servicesData, error } = await supabase
+          .from('services')
+          .select('*')
+          .eq('workspace_id', userData.workspace_id)
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          console.error('Error fetching services:', error)
+          return
+        }
+
+        setServices(servicesData || [])
+      } catch (error) {
+        console.error('Error fetching services:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchServices()
+  }, [refreshTrigger])
+
+  const handleServiceAdded = () => {
+    setRefreshTrigger(prev => prev + 1)
+  }
+
+  const handleServiceUpdated = () => {
+    setRefreshTrigger(prev => prev + 1)
+    setIsEditSheetOpen(false)
+    setSelectedService(null)
+  }
+
+  const handleEditService = (service: Service) => {
+    setSelectedService(service)
+    setIsEditSheetOpen(true)
+  }
+
+  const handleCloseEdit = () => {
+    setIsEditSheetOpen(false)
+    setSelectedService(null)
+  }
+
   return (
-    <div className="min-h-[100vh] flex-1 rounded-xl border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold text-muted-foreground mb-2">Welcome to Services</h1>
-        <p className="text-muted-foreground">Services management will be displayed here</p>
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm">
+            <IconLayoutColumns className="h-4 w-4 mr-2" />
+            View
+          </Button>
+          <AddServiceSheet onServiceAdded={handleServiceAdded} />
+        </div>
       </div>
+
+      <ServicesDataTable 
+        services={services}
+        isLoading={isLoading}
+        onEditService={handleEditService}
+        onRefresh={handleServiceAdded}
+      />
+
+      {/* Edit Service Sheet */}
+      <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
+        <SheetContent className="w-[400px] sm:w-[540px]">
+          <SheetHeader>
+            <SheetTitle>Edit Service</SheetTitle>
+            <SheetDescription>
+              Update the service details and pricing information.
+            </SheetDescription>
+          </SheetHeader>
+          {selectedService && (
+            <ServiceEditForm
+              service={selectedService}
+              onServiceUpdated={handleServiceUpdated}
+              onClose={handleCloseEdit}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  )
+}
+
+// Add Service Sheet Component
+function AddServiceSheet({ onServiceAdded }: { onServiceAdded?: () => void }) {
+  const [isOpen, setIsOpen] = React.useState(false)
+
+  return (
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <SheetTrigger asChild>
+        <Button size="sm">
+          <IconPlus className="h-4 w-4 mr-2" />
+          Add Service
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="w-[400px] sm:w-[540px]">
+        <SheetHeader>
+          <SheetTitle>Add New Service</SheetTitle>
+          <SheetDescription>
+            Create a new tutoring service with pricing information.
+          </SheetDescription>
+        </SheetHeader>
+        <AddServiceContent 
+          onServiceAdded={() => {
+            onServiceAdded?.()
+            setIsOpen(false)
+          }} 
+        />
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+// Add Service Form Schema
+const addServiceSchema = z.object({
+  name: z.string().min(1, "Service name is required"),
+  description: z.string().optional(),
+  price_per_hour: z.string().optional(),
+  cost_per_hour: z.string().optional(),
+})
+
+type AddServiceFormData = z.infer<typeof addServiceSchema>
+
+function AddServiceContent({ onServiceAdded }: { onServiceAdded?: () => void }) {
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<AddServiceFormData>({
+    resolver: zodResolver(addServiceSchema),
+  })
+  const [isLoading, setIsLoading] = React.useState(false)
+
+  const onSubmit = async (data: AddServiceFormData) => {
+    setIsLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        toast.error("You must be logged in to create a service")
+        return
+      }
+
+      const { data: userData } = await supabase
+        .from('app_users')
+        .select('workspace_id')
+        .eq('id', user.id)
+        .single()
+
+      if (!userData?.workspace_id) {
+        toast.error("Workspace not found")
+        return
+      }
+
+      const { error } = await supabase
+        .from('services')
+        .insert({
+          name: data.name,
+          description: data.description || null,
+          price_per_hour: data.price_per_hour ? parseFloat(data.price_per_hour) : null,
+          cost_per_hour: data.cost_per_hour ? parseFloat(data.cost_per_hour) : null,
+          workspace_id: userData.workspace_id,
+        })
+
+      if (error) {
+        console.error('Error creating service:', error)
+        toast.error("Failed to create service")
+        return
+      }
+
+      reset()
+      toast.success("Service successfully created!")
+      
+      if (onServiceAdded) {
+        onServiceAdded()
+      }
+    } catch (error) {
+      console.error('Error creating service:', error)
+      toast.error("An unexpected error occurred")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6 py-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {/* Service Details */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <IconBriefcase className="h-4 w-4" />
+            Service Details
+          </h3>
+          <div className="space-y-2">
+            <Label htmlFor="name">Service Name *</Label>
+            <Input
+              id="name"
+              {...register('name')}
+              placeholder="e.g., Math Tutoring, Physics Help"
+              className={errors.name ? "border-red-500" : ""}
+            />
+            {errors.name && (
+              <p className="text-sm text-red-500">{errors.name.message}</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              {...register('description')}
+              placeholder="Describe what this service includes..."
+              rows={3}
+            />
+          </div>
+        </div>
+
+        {/* Pricing */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <IconCurrencyDollar className="h-4 w-4" />
+            Pricing
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="price_per_hour">Price per Hour</Label>
+              <Input
+                id="price_per_hour"
+                type="number"
+                step="0.01"
+                min="0"
+                {...register('price_per_hour')}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cost_per_hour">Cost per Hour</Label>
+              <Input
+                id="cost_per_hour"
+                type="number"
+                step="0.01"
+                min="0"
+                {...register('cost_per_hour')}
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Form Actions */}
+        <div className="flex flex-col gap-2 pt-4">
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
+                Creating...
+              </>
+            ) : (
+              'Create Service'
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+// Services Data Table Component
+interface ServicesDataTableProps {
+  services: Service[]
+  isLoading: boolean
+  onEditService: (service: Service) => void
+  onRefresh: () => void
+}
+
+function ServicesDataTable({ services, isLoading, onEditService, onRefresh }: ServicesDataTableProps) {
+  const [sorting, setSorting] = React.useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
+  const [rowSelection, setRowSelection] = React.useState({})
+  const [globalFilter, setGlobalFilter] = React.useState("")
+
+  const columns: ColumnDef<Service>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      accessorKey: "name",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-auto p-0 font-semibold hover:bg-transparent"
+        >
+          Service Name
+          <IconChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => (
+        <Button 
+          variant="link" 
+          className="text-foreground w-fit px-0 text-left font-medium h-auto"
+          onClick={() => onEditService(row.original)}
+        >
+          {row.getValue("name")}
+        </Button>
+      ),
+    },
+    {
+      accessorKey: "description",
+      header: "Description",
+      cell: ({ row }) => (
+        <div className="max-w-[200px] truncate">
+          {row.getValue("description") || "No description"}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "price_per_hour",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-auto p-0 font-semibold hover:bg-transparent"
+        >
+          <IconCurrencyDollar className="mr-1 h-4 w-4" />
+          Price/Hour
+          <IconChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const price = row.getValue("price_per_hour") as number
+        return price ? `$${price.toFixed(2)}` : "Not set"
+      },
+    },
+    {
+      accessorKey: "cost_per_hour",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-auto p-0 font-semibold hover:bg-transparent"
+        >
+          <IconCurrencyDollar className="mr-1 h-4 w-4" />
+          Cost/Hour
+          <IconChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const cost = row.getValue("cost_per_hour") as number
+        return cost ? `$${cost.toFixed(2)}` : "Not set"
+      },
+    },
+    {
+      accessorKey: "created_at",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-auto p-0 font-semibold hover:bg-transparent"
+        >
+          Created
+          <IconChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const date = new Date(row.getValue("created_at"))
+        return date.toLocaleDateString()
+      },
+    },
+    {
+      id: "actions",
+      enableHiding: false,
+      cell: ({ row }) => {
+        const service = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <IconDotsVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => onEditService(service)}>
+                Edit service
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={async () => {
+                  if (confirm('Are you sure you want to delete this service?')) {
+                    try {
+                      const { error } = await supabase
+                        .from('services')
+                        .delete()
+                        .eq('id', service.id)
+                      
+                      if (error) {
+                        console.error('Error deleting service:', error)
+                        toast.error('Failed to delete service')
+                      } else {
+                        toast.success('Service deleted successfully')
+                        onRefresh()
+                      }
+                    } catch (error) {
+                      console.error('Error deleting service:', error)
+                      toast.error('An unexpected error occurred')
+                    }
+                  }
+                }}
+                className="text-red-600"
+              >
+                Delete service
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
+  ]
+
+  const table = useReactTable({
+    data: services,
+    columns,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: "includesString",
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+      globalFilter,
+    },
+  })
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center h-32">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Services</CardTitle>
+        <CardDescription>
+          Manage your tutoring services and pricing structure.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center py-4">
+          <Input
+            placeholder="Search services..."
+            value={globalFilter ?? ""}
+            onChange={(event) => setGlobalFilter(String(event.target.value))}
+            className="max-w-sm"
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="ml-auto">
+                <IconLayoutColumns className="mr-2 h-4 w-4" />
+                Columns
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {table
+                .getAllColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => {
+                  return (
+                    <DropdownMenuItem
+                      key={column.id}
+                      className="capitalize"
+                      onClick={() => column.toggleVisibility(!column.getIsVisible())}
+                    >
+                      <Checkbox
+                        checked={column.getIsVisible()}
+                        className="mr-2"
+                      />
+                      {column.id}
+                    </DropdownMenuItem>
+                  )
+                })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    return (
+                      <TableHead key={header.id}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    )
+                  })}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    No services found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex items-center justify-end space-x-2 py-4">
+          <div className="flex-1 text-sm text-muted-foreground">
+            {table.getFilteredSelectedRowModel().rows.length} of{" "}
+            {table.getFilteredRowModel().rows.length} row(s) selected.
+          </div>
+          <div className="space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Service Edit Form Component
+interface ServiceEditFormProps {
+  service: Service
+  onServiceUpdated: () => void
+  onClose: () => void
+}
+
+function ServiceEditForm({ service, onServiceUpdated, onClose }: ServiceEditFormProps) {
+  const [formData, setFormData] = React.useState({
+    name: service.name,
+    description: service.description || '',
+    price_per_hour: service.price_per_hour?.toString() || '',
+    cost_per_hour: service.cost_per_hour?.toString() || '',
+  })
+  const [isLoading, setIsLoading] = React.useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+
+    try {
+      const { error } = await supabase
+        .from('services')
+        .update({
+          name: formData.name,
+          description: formData.description || null,
+          price_per_hour: formData.price_per_hour ? parseFloat(formData.price_per_hour) : null,
+          cost_per_hour: formData.cost_per_hour ? parseFloat(formData.cost_per_hour) : null,
+        })
+        .eq('id', service.id)
+
+      if (error) {
+        console.error('Error updating service:', error)
+        toast.error('Failed to update service')
+        return
+      }
+
+      toast.success('Service updated successfully!')
+      onServiceUpdated()
+    } catch (error) {
+      console.error('Error updating service:', error)
+      toast.error('An unexpected error occurred')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6 py-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Service Details */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <IconBriefcase className="h-4 w-4" />
+            Service Details
+          </h3>
+          <div className="space-y-2">
+            <Label htmlFor="name">Service Name *</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g., Math Tutoring, Physics Help"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Describe what this service includes..."
+              rows={3}
+            />
+          </div>
+        </div>
+
+        {/* Pricing */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <IconCurrencyDollar className="h-4 w-4" />
+            Pricing
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="price_per_hour">Price per Hour</Label>
+              <Input
+                id="price_per_hour"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.price_per_hour}
+                onChange={(e) => setFormData({ ...formData, price_per_hour: e.target.value })}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cost_per_hour">Cost per Hour</Label>
+              <Input
+                id="cost_per_hour"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.cost_per_hour}
+                onChange={(e) => setFormData({ ...formData, cost_per_hour: e.target.value })}
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 pt-4">
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
+                Updating...
+              </>
+            ) : (
+              'Update Service'
+            )}
+          </Button>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+        </div>
+      </form>
     </div>
   )
 }
