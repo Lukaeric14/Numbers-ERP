@@ -38,7 +38,7 @@ import { toast } from "sonner"
 import { supabase } from '@/lib/supabase'
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Badge } from "@/components/ui/badge"
@@ -78,6 +78,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import {
   Table,
   TableBody,
@@ -1110,13 +1117,1105 @@ export function ServicesContent() {
   )
 }
 
+// Lesson type definition
+type Lesson = {
+  id: string
+  workspace_id: string
+  tutor_id: string
+  student_id: string
+  service_id?: string
+  location_id?: string
+  title: string
+  description?: string
+  start_time: string
+  end_time: string
+  status: 'scheduled' | 'completed' | 'canceled'
+  invoice_id?: string
+  created_at: string
+  // Joined data
+  tutor_name?: string
+  student_name?: string
+  service_name?: string
+  location_name?: string
+}
+
+interface LessonEditFormProps {
+  lesson: Lesson;
+  onLessonUpdated: () => void;
+  onClose: () => void;
+  dropdownData: {
+    tutors: { id: string; name: string }[];
+    students: { id: string; name: string }[];
+    services: { id: string; name: string }[];
+    locations: { id: string; name: string }[];
+  };
+}
+
 export function LessonsContent() {
+  const [showAddForm, setShowAddForm] = React.useState(false)
+  const [selectedLesson, setSelectedLesson] = React.useState<Lesson | null>(null)
+  const [isDrawerOpen, setIsDrawerOpen] = React.useState(false)
+  const [refreshTrigger, setRefreshTrigger] = React.useState(0)
+  const [dropdownData, setDropdownData] = React.useState({
+    tutors: [] as { id: string; name: string }[],
+    students: [] as { id: string; name: string }[],
+    services: [] as { id: string; name: string }[],
+    locations: [] as { id: string; name: string }[]
+  })
+
+  const handleLessonAdded = () => {
+    setShowAddForm(false)
+    setRefreshTrigger(prev => prev + 1)
+  }
+  
+  const handleAddLesson = () => {
+    setShowAddForm(true);
+  }
+
+  const handleLessonUpdated = () => {
+    setIsDrawerOpen(false)
+    setSelectedLesson(null)
+    setRefreshTrigger(prev => prev + 1)
+  }
+
+  // Fetch dropdown data on component mount
+  React.useEffect(() => {
+    const fetchDropdownData = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data: userData } = await supabase
+          .from('app_users')
+          .select('workspace_id')
+          .eq('id', user.id)
+          .single()
+
+        if (!userData?.workspace_id) return
+
+        // Fetch all dropdown data in parallel
+        const [tutorsData, studentsData, servicesData, locationsData] = await Promise.all([
+          supabase.from('employees').select('id, first_name, last_name').eq('workspace_id', userData.workspace_id).eq('type', 'tutor'),
+          supabase.from('students').select('id, first_name, last_name').eq('workspace_id', userData.workspace_id),
+          supabase.from('services').select('id, name').eq('workspace_id', userData.workspace_id),
+          supabase.from('locations').select('id, name').eq('workspace_id', userData.workspace_id)
+        ])
+
+        setDropdownData({
+          tutors: tutorsData.data?.map(t => ({ id: t.id, name: `${t.first_name} ${t.last_name}` })) || [],
+          students: studentsData.data?.map(s => ({ id: s.id, name: `${s.first_name} ${s.last_name}` })) || [],
+          services: servicesData.data || [],
+          locations: locationsData.data || []
+        })
+      } catch (error) {
+        console.error('Error fetching dropdown data:', error)
+      }
+    }
+
+    fetchDropdownData()
+  }, [])
+
   return (
-    <div className="min-h-[100vh] flex-1 rounded-xl border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold text-muted-foreground mb-2">Welcome to Lessons</h1>
-        <p className="text-muted-foreground">Lessons management will be displayed here</p>
+    <div className="space-y-8">
+      {showAddForm ? (
+        <AddLessonContent onLessonAdded={handleLessonAdded} />
+      ) : (
+        <LessonsDataTable 
+          onAddLesson={handleAddLesson} 
+          onLessonSelect={(lesson) => {
+            setSelectedLesson(lesson)
+            setIsDrawerOpen(true)
+          }}
+          refreshTrigger={refreshTrigger}
+        />
+      )}
+      
+      {/* Edit Lesson Sheet */}
+      <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>{selectedLesson?.title}</SheetTitle>
+            <SheetDescription>
+              Lesson: {selectedLesson?.title}
+            </SheetDescription>
+          </SheetHeader>
+          {selectedLesson && (
+            <LessonEditForm 
+              lesson={selectedLesson} 
+              onLessonUpdated={handleLessonUpdated}
+              onClose={() => setIsDrawerOpen(false)}
+              dropdownData={dropdownData}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  )
+}
+
+// Add Lesson Form Schema
+const addLessonSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  tutor_id: z.string().min(1, "Tutor is required"),
+  student_id: z.string().min(1, "Student is required"),
+  service_id: z.string().optional(),
+  location_id: z.string().optional(),
+  start_time: z.string().min(1, "Start time is required"),
+  end_time: z.string().min(1, "End time is required"),
+  status: z.enum(["scheduled", "completed", "canceled"]).default("scheduled"),
+})
+
+type AddLessonFormData = z.infer<typeof addLessonSchema>
+
+export function AddLessonContent({ onLessonAdded }: { onLessonAdded?: () => void }) {
+  const { register, handleSubmit, formState: { errors }, reset, watch, control } = useForm<AddLessonFormData>({
+    resolver: zodResolver(addLessonSchema),
+  })
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [tutors, setTutors] = React.useState<{id: string, name: string}[]>([])
+  const [students, setStudents] = React.useState<{id: string, name: string}[]>([])
+  const [services, setServices] = React.useState<{id: string, name: string}[]>([])
+  const [locations, setLocations] = React.useState<{id: string, name: string}[]>([])
+
+  // Fetch dropdown data
+  React.useEffect(() => {
+    const fetchDropdownData = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data: userData } = await supabase
+          .from('app_users')
+          .select('workspace_id')
+          .eq('id', user.id)
+          .single()
+
+        if (!userData?.workspace_id) return
+
+        // Fetch tutors
+        const { data: tutorsData } = await supabase
+          .from('employees')
+          .select('id, first_name, last_name')
+          .eq('workspace_id', userData.workspace_id)
+          .eq('status', 'active')
+
+        if (tutorsData) {
+          setTutors(tutorsData.map(t => ({ id: t.id, name: `${t.first_name} ${t.last_name}` })))
+        }
+
+        // Fetch students
+        const { data: studentsData } = await supabase
+          .from('students')
+          .select('id, first_name, last_name')
+          .eq('workspace_id', userData.workspace_id)
+
+        if (studentsData) {
+          setStudents(studentsData.map(s => ({ id: s.id, name: `${s.first_name} ${s.last_name}` })))
+        }
+
+        // Fetch services
+        const { data: servicesData } = await supabase
+          .from('services')
+          .select('id, name')
+          .eq('workspace_id', userData.workspace_id)
+
+        if (servicesData) {
+          setServices(servicesData)
+        }
+
+        // Fetch locations
+        const { data: locationsData } = await supabase
+          .from('locations')
+          .select('id, name')
+          .eq('workspace_id', userData.workspace_id)
+
+        if (locationsData) {
+          setLocations(locationsData)
+        }
+      } catch (error) {
+        console.error('Error fetching dropdown data:', error)
+      }
+    }
+
+    fetchDropdownData()
+  }, [])
+
+  const createLesson = async (data: AddLessonFormData) => {
+    if (!data) return
+
+    setIsLoading(true)
+    try {
+      // Get current user for workspace_id
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (!currentUser) {
+        toast.error("You must be logged in to create a lesson")
+        return
+      }
+
+      const { data: currentUserData } = await supabase
+        .from('app_users')
+        .select('workspace_id')
+        .eq('id', currentUser.id)
+        .single()
+
+      if (!currentUserData?.workspace_id) {
+        toast.error("Unable to determine workspace")
+        return
+      }
+
+      const workspace_id = currentUserData.workspace_id
+
+      // Create lesson record
+      const { data: newLesson, error } = await supabase
+        .from('lessons')
+        .insert({
+          title: data.title,
+          description: data.description || null,
+          tutor_id: data.tutor_id,
+          student_id: data.student_id,
+          service_id: data.service_id || null,
+          location_id: data.location_id || null,
+          start_time: data.start_time,
+          end_time: data.end_time,
+          status: data.status,
+          workspace_id,
+        })
+        .select('id')
+        .single()
+
+      if (error) {
+        console.error('Error creating lesson:', error)
+        toast.error("Failed to create lesson")
+        return
+      }
+
+      // Reset form
+      reset()
+
+      toast.success("Lesson successfully created!")
+      
+      // Call the callback to refresh the parent component
+      if (onLessonAdded) {
+        onLessonAdded()
+      }
+    } catch (error) {
+      console.error('Error creating lesson:', error)
+      toast.error("An unexpected error occurred")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="flex-1 p-6">
+      <Card className="max-w-4xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <IconCalendar className="h-5 w-5" />
+            Add New Lesson
+          </CardTitle>
+          <CardDescription>
+            Schedule a new lesson by selecting the tutor, student, and time details.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <form onSubmit={handleSubmit((data: AddLessonFormData) => createLesson(data))} className="space-y-6">
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <IconCalendar className="h-4 w-4" />
+                Lesson Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Title *</Label>
+                  <Input
+                    id="title"
+                    {...register('title')}
+                    placeholder="Enter lesson title"
+                    className={errors.title ? "border-red-500" : ""}
+                  />
+                  {errors.title && (
+                    <p className="text-sm text-red-500">{errors.title.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select {...register('status')}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="scheduled">Scheduled</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="canceled">Canceled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  {...register('description')}
+                  placeholder="Enter lesson description or notes..."
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            {/* Participants */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <IconUser className="h-4 w-4" />
+                Participants
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tutor_id">Tutor *</Label>
+                  <Controller
+                    name="tutor_id"
+                    control={control}
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select tutor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tutors.map(tutor => (
+                            <SelectItem key={tutor.id} value={tutor.id}>{tutor.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.tutor_id && (
+                    <p className="text-sm text-red-500">{errors.tutor_id.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="student_id">Student *</Label>
+                  <Controller
+                    name="student_id"
+                    control={control}
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select student" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {students.map(student => (
+                            <SelectItem key={student.id} value={student.id}>{student.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.student_id && (
+                    <p className="text-sm text-red-500">{errors.student_id.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Schedule & Location */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <IconCalendar className="h-4 w-4" />
+                Schedule & Location
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="start_time">Start Time *</Label>
+                  <Input
+                    id="start_time"
+                    type="datetime-local"
+                    {...register('start_time')}
+                    className={errors.start_time ? "border-red-500" : ""}
+                  />
+                  {errors.start_time && (
+                    <p className="text-sm text-red-500">{errors.start_time.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="end_time">End Time *</Label>
+                  <Input
+                    id="end_time"
+                    type="datetime-local"
+                    {...register('end_time')}
+                    className={errors.end_time ? "border-red-500" : ""}
+                  />
+                  {errors.end_time && (
+                    <p className="text-sm text-red-500">{errors.end_time.message}</p>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="service_id">Service</Label>
+                  <Controller
+                    name="service_id"
+                    control={control}
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select service (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {services.map(service => (
+                            <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="location_id">Location</Label>
+                  <Controller
+                    name="location_id"
+                    control={control}
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select location (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {locations.map(location => (
+                            <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Form Actions */}
+            <div className="flex flex-col gap-4 pt-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  reset()
+                }}
+                disabled={isLoading}
+              >
+                Clear Form
+              </Button>
+              <div className="flex justify-end gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={() => onLessonAdded && onLessonAdded()}
+                  disabled={isLoading}
+                >
+                  <IconX className="mr-2 h-4 w-4" />
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={isLoading}
+                  className="min-w-[140px]"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      Creating...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <IconPlus className="h-4 w-4" />
+                      Create Lesson
+                    </div>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// Lessons Data Table Component
+function LessonsDataTable({ onAddLesson, onLessonSelect, refreshTrigger }: { 
+  onAddLesson: () => void;
+  onLessonSelect: (lesson: Lesson) => void;
+  refreshTrigger: number;
+}) {
+  const [lessons, setLessons] = React.useState<Lesson[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [sorting, setSorting] = React.useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
+  const [rowSelection, setRowSelection] = React.useState({})
+  const isMobile = useIsMobile()
+
+  // Fetch lessons data
+  const fetchLessons = React.useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: userData } = await supabase
+        .from('app_users')
+        .select('workspace_id')
+        .eq('id', user.id)
+        .single()
+
+      if (!userData?.workspace_id) return
+
+      const { data: lessonsData, error } = await supabase
+        .from('lessons')
+        .select(`
+          *,
+          tutor:employees!tutor_id(first_name, last_name),
+          student:students!student_id(first_name, last_name),
+          service:services!service_id(name)
+        `)
+        .eq('workspace_id', userData.workspace_id)
+        .order('start_time', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching lessons:', error)
+        return
+      }
+
+      if (lessonsData) {
+        const formattedLessons = lessonsData.map(lesson => ({
+          ...lesson,
+          tutor_name: lesson.tutor ? `${lesson.tutor.first_name} ${lesson.tutor.last_name}` : 'Unknown',
+          student_name: lesson.student ? `${lesson.student.first_name} ${lesson.student.last_name}` : 'Unknown',
+          service_name: lesson.service?.name || 'No Service'
+        }))
+        setLessons(formattedLessons)
+      }
+    } catch (error) {
+      console.error('Error fetching lessons:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    fetchLessons()
+  }, [fetchLessons, refreshTrigger])
+
+  // Table columns
+  const columns: ColumnDef<Lesson>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected()}
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      accessorKey: "title",
+      header: "Title",
+      cell: ({ row }) => (
+        <button
+          onClick={() => {
+            onLessonSelect(row.original)
+          }}
+          className="font-medium text-primary underline-offset-4 hover:underline"
+        >
+          {row.getValue("title")}
+        </button>
+      ),
+      enableHiding: false,
+    },
+    {
+      accessorKey: "tutor_name",
+      header: "Tutor",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <IconUser className="h-4 w-4 text-muted-foreground" />
+          {row.getValue("tutor_name")}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "student_name",
+      header: "Student",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <IconUser className="h-4 w-4 text-muted-foreground" />
+          {row.getValue("student_name")}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "start_time",
+      header: "Start Time",
+      cell: ({ row }) => {
+        const startTime = new Date(row.getValue("start_time"))
+        return (
+          <div className="flex items-center gap-2">
+            <IconCalendar className="h-4 w-4 text-muted-foreground" />
+            {startTime.toLocaleString()}
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const status = row.getValue("status") as string
+        return (
+          <Badge 
+            variant={
+              status === "completed" ? "default" : 
+              status === "canceled" ? "destructive" : 
+              "secondary"
+            }
+          >
+            {status.charAt(0).toUpperCase() + status.slice(1)}
+          </Badge>
+        )
+      },
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => {
+        const lesson = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <IconDotsVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={async () => {
+                  if (confirm('Are you sure you want to delete this lesson?')) {
+                    try {
+                      const { error } = await supabase
+                        .from('lessons')
+                        .delete()
+                        .eq('id', lesson.id)
+                      
+                      if (error) {
+                        toast.error('Failed to delete lesson')
+                      } else {
+                        toast.success('Lesson deleted successfully')
+                        fetchLessons()
+                      }
+                    } catch (error) {
+                      toast.error('Failed to delete lesson')
+                    }
+                  }
+                }}
+                className="text-red-600"
+              >
+                Delete lesson
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
+  ]
+
+  const table = useReactTable({
+    data: lessons,
+    columns,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+    },
+  })
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent" />
       </div>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>All Lessons</CardTitle>
+        <CardDescription>
+          Manage your scheduled lessons and their details
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <IconSearch className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search lessons..."
+                value={(table.getColumn("title")?.getFilterValue() as string) ?? ""}
+                onChange={(event) =>
+                  table.getColumn("title")?.setFilterValue(event.target.value)
+                }
+                className="pl-8 max-w-sm"
+              />
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button onClick={onAddLesson} size="sm">
+              <IconPlus className="mr-2 h-4 w-4" />
+              Add Lesson
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="ml-auto">
+                  <IconLayoutColumns className="mr-2 h-4 w-4" />
+                  View
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {table
+                  .getAllColumns()
+                  .filter((column) => column.getCanHide())
+                  .map((column) => {
+                    return (
+                      <DropdownMenuItem
+                        key={column.id}
+                        className="capitalize"
+                        onClick={() => column.toggleVisibility(!column.getIsVisible())}
+                      >
+                        <Checkbox
+                          checked={column.getIsVisible()}
+                          className="mr-2"
+                        />
+                        {column.id}
+                      </DropdownMenuItem>
+                    )
+                  })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    return (
+                      <TableHead key={header.id}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    )
+                  })}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    No lessons found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex items-center justify-end space-x-2 py-4">
+          <div className="flex-1 text-sm text-muted-foreground">
+            {table.getFilteredSelectedRowModel().rows.length} of{" "}
+            {table.getFilteredRowModel().rows.length} row(s) selected.
+          </div>
+          <div className="space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Lesson Edit Form Component
+function LessonEditForm({ lesson, onLessonUpdated, onClose, dropdownData }: LessonEditFormProps) {
+  const [formData, setFormData] = React.useState({
+    title: '',
+    description: '',
+    tutor_id: '',
+    student_id: '',
+    service_id: '',
+    location_id: '',
+    start_time: '',
+    end_time: '',
+    status: 'scheduled' as 'scheduled' | 'completed' | 'canceled'
+  })
+  const [isLoading, setIsLoading] = React.useState(false)
+
+  // Initialize form data when lesson changes
+  React.useEffect(() => {
+    if (lesson) {
+      setFormData({
+        title: lesson.title || '',
+        description: lesson.description || '',
+        tutor_id: lesson.tutor_id || '',
+        student_id: lesson.student_id || '',
+        service_id: lesson.service_id || '',
+        location_id: lesson.location_id || '',
+        start_time: lesson.start_time ? new Date(lesson.start_time).toISOString().slice(0, 16) : '',
+        end_time: lesson.end_time ? new Date(lesson.end_time).toISOString().slice(0, 16) : '',
+        status: lesson.status || 'scheduled'
+      })
+    }
+  }, [lesson])
+
+
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+
+    try {
+      const { error } = await supabase
+        .from('lessons')
+        .update({
+          title: formData.title,
+          description: formData.description || null,
+          tutor_id: formData.tutor_id,
+          student_id: formData.student_id,
+          service_id: formData.service_id || null,
+          location_id: formData.location_id || null,
+          start_time: formData.start_time,
+          end_time: formData.end_time,
+          status: formData.status
+        })
+        .eq('id', lesson.id)
+
+      if (error) {
+        toast.error('Failed to update lesson')
+        console.error('Error updating lesson:', error)
+      } else {
+        toast.success('Lesson updated successfully')
+        onLessonUpdated()
+      }
+    } catch (error) {
+      toast.error('Failed to update lesson')
+      console.error('Error updating lesson:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="p-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="title">Title *</Label>
+            <Input
+              id="title"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              required
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="status">Status</Label>
+            <Select value={formData.status} onValueChange={(value: 'scheduled' | 'completed' | 'canceled') => setFormData({ ...formData, status: value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="canceled">Canceled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="description">Description</Label>
+          <Textarea
+            id="description"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            rows={3}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="tutor_id">Tutor *</Label>
+            <Select value={formData.tutor_id} onValueChange={(value) => setFormData({ ...formData, tutor_id: value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select tutor" />
+              </SelectTrigger>
+              <SelectContent>
+                {dropdownData.tutors.map((tutor: { id: string; name: string }) => (
+                  <SelectItem key={tutor.id} value={tutor.id}>
+                    {tutor.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="student_id">Student *</Label>
+            <Select value={formData.student_id} onValueChange={(value) => setFormData({ ...formData, student_id: value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select student" />
+              </SelectTrigger>
+              <SelectContent>
+                {dropdownData.students.map((student: { id: string; name: string }) => (
+                  <SelectItem key={student.id} value={student.id}>
+                    {student.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="service_id">Service</Label>
+            <Select value={formData.service_id} onValueChange={(value) => setFormData({ ...formData, service_id: value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select service" />
+              </SelectTrigger>
+              <SelectContent>
+                {dropdownData.services.map((service: { id: string; name: string }) => (
+                  <SelectItem key={service.id} value={service.id}>
+                    {service.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="location_id">Location</Label>
+            <Select value={formData.location_id} onValueChange={(value) => setFormData({ ...formData, location_id: value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select location" />
+              </SelectTrigger>
+              <SelectContent>
+                {dropdownData.locations.map((location: { id: string; name: string }) => (
+                  <SelectItem key={location.id} value={location.id}>
+                    {location.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="start_time">Start Time *</Label>
+            <Input
+              id="start_time"
+              type="datetime-local"
+              value={formData.start_time}
+              onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="end_time">End Time *</Label>
+            <Input
+              id="end_time"
+              type="datetime-local"
+              value={formData.end_time}
+              onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 pt-4">
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
+                Updating...
+              </>
+            ) : (
+              'Update Lesson'
+            )}
+          </Button>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+        </div>
+      </form>
     </div>
   )
 }
