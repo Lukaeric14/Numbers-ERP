@@ -1184,26 +1184,17 @@ export function ServicesContent() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <IconLayoutColumns className="h-4 w-4 mr-2" />
-            View
-          </Button>
-          <AddServiceSheet onServiceAdded={handleServiceAdded} />
-        </div>
-      </div>
-
       <ServicesDataTable 
         services={services}
         isLoading={isLoading}
         onEditService={handleEditService}
         onRefresh={handleServiceAdded}
+        onServiceAdded={handleServiceAdded}
       />
 
       {/* Edit Service Sheet */}
       <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
-        <SheetContent className="w-[400px] sm:w-[540px]">
+        <SheetContent className="w-[400px] sm:w-[540px] p-6">
           <SheetHeader>
             <SheetTitle>Edit Service</SheetTitle>
             <SheetDescription>
@@ -1235,7 +1226,7 @@ function AddServiceSheet({ onServiceAdded }: { onServiceAdded?: () => void }) {
           Add Service
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-[400px] sm:w-[540px]">
+      <SheetContent className="w-[400px] sm:w-[540px] p-6">
         <SheetHeader>
           <SheetTitle>Add New Service</SheetTitle>
           <SheetDescription>
@@ -1407,9 +1398,10 @@ interface ServicesDataTableProps {
   isLoading: boolean
   onEditService: (service: Service) => void
   onRefresh: () => void
+  onServiceAdded: () => void
 }
 
-function ServicesDataTable({ services, isLoading, onEditService, onRefresh }: ServicesDataTableProps) {
+function ServicesDataTable({ services, isLoading, onEditService, onRefresh, onServiceAdded }: ServicesDataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
@@ -1612,10 +1604,21 @@ function ServicesDataTable({ services, isLoading, onEditService, onRefresh }: Se
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Services</CardTitle>
-        <CardDescription>
-          Manage your tutoring services and pricing structure.
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Services</CardTitle>
+            <CardDescription>
+              Manage your tutoring services and pricing structure.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm">
+              <IconLayoutColumns className="h-4 w-4 mr-2" />
+              View
+            </Button>
+            <AddServiceSheet onServiceAdded={onServiceAdded} />
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="flex items-center py-4">
@@ -1781,7 +1784,7 @@ function ServiceEditForm({ service, onServiceUpdated, onClose }: ServiceEditForm
   }
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Service Details */}
         <div className="space-y-4">
